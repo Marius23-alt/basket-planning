@@ -6,6 +6,22 @@
     <title>Planning des matchs</title>
     <!-- Lien vers le CSS de Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Lien vers Font Awesome pour les icônes -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Personnalisation CSS */
+        .card {
+            margin-bottom: 1rem;
+        }
+        .card-body {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .search-input {
+            margin-bottom: 1rem;
+        }
+    </style>
 </head>
 <body>
     <!-- En-tête -->
@@ -17,17 +33,27 @@
     <div class="container mt-4">
         <h2 class="mb-3">Prochains matchs</h2>
         
+        <!-- Barre de recherche -->
+        <input type="text" id="search" class="form-control search-input" placeholder="Rechercher un match...">
+
+        <!-- Formulaire pour ajouter un match (Admin) -->
+        <h3 class="mt-5">Ajouter un match</h3>
+        <form id="matchForm">
+            <div class="mb-3">
+                <input type="text" id="team1" class="form-control" placeholder="Équipe A" required>
+            </div>
+            <div class="mb-3">
+                <input type="text" id="team2" class="form-control" placeholder="Équipe B" required>
+            </div>
+            <div class="mb-3">
+                <input type="datetime-local" id="matchDate" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Ajouter le match</button>
+        </form>
+
         <!-- Liste des matchs -->
-        <div class="list-group">
-            <a href="#" class="list-group-item list-group-item-action">
-                <strong>Équipe A</strong> vs <strong>Équipe B</strong> - 12/05 à 18h00
-            </a>
-            <a href="#" class="list-group-item list-group-item-action">
-                <strong>Équipe C</strong> vs <strong>Équipe D</strong> - 14/05 à 20h00
-            </a>
-            <a href="#" class="list-group-item list-group-item-action">
-                <strong>Équipe E</strong> vs <strong>Équipe F</strong> - 16/05 à 17h30
-            </a>
+        <div id="matchList" class="mt-4">
+            <!-- Les matchs seront ajoutés ici dynamiquement -->
         </div>
     </div>
 
@@ -38,5 +64,96 @@
 
     <!-- Lien vers le JS de Bootstrap -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        let matchs = [];
+
+        // Charger les matchs depuis le serveur
+        async function chargerMatchs() {
+            try {
+                const response = await fetch('http://localhost:3000/matchs');
+                const data = await response.json();
+                matchs = data;
+                afficherMatchs(matchs);
+            } catch (error) {
+                console.error('Erreur lors du chargement des matchs :', error);
+            }
+        }
+
+        // Fonction pour afficher les matchs
+        function afficherMatchs(matchs) {
+            const matchList = document.getElementById('matchList');
+            matchList.innerHTML = ''; // Réinitialise la liste
+
+            matchs.forEach(match => {
+                const matchCard = document.createElement('div');
+                matchCard.classList.add('card');
+
+                matchCard.innerHTML = `
+                    <div class="card-body">
+                        <div>
+                            <h5 class="card-title">${match.team1} vs ${match.team2}</h5>
+                            <p class="card-text">${new Date(match.date).toLocaleString()}</p>
+                        </div>
+                        <button class="btn btn-danger btn-sm" onclick="supprimerMatch(${match.id})">Supprimer</button>
+                    </div>
+                `;
+                matchList.appendChild(matchCard);
+            });
+        }
+
+        // Fonction pour ajouter un match
+        document.getElementById('matchForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const team1 = document.getElementById('team1').value;
+            const team2 = document.getElementById('team2').value;
+            const matchDate = document.getElementById('matchDate').value;
+
+            const match = { team1, team2, date: matchDate };
+            fetch('http://localhost:3000/matchs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(match),
+            })
+            .then(response => response.json())
+            .then(data => {
+                matchs.push(data);  // Ajouter le match à la liste
+                afficherMatchs(matchs);
+            })
+            .catch(error => console.error('Erreur lors de l\'ajout du match:', error));
+        });
+
+        // Fonction pour supprimer un match
+        function supprimerMatch(id) {
+            console.log('ID envoyé pour suppression :', id);  // Vérifie l'ID avant d'envoyer la requête
+
+            fetch(`http://localhost:3000/matchs/${id}`, {
+                method: 'DELETE',
+            })
+            .then(response => {
+                if (response.ok) {
+                    alert('Match supprimé avec succès');
+                    matchs = matchs.filter(match => match.id !== id);
+                    afficherMatchs(matchs);
+                } else {
+                    alert('Erreur lors de la suppression du match');
+                }
+            })
+            .catch(error => console.error('Erreur lors de la suppression du match:', error));
+        }
+
+        // Fonction pour filtrer les matchs
+        document.getElementById('search').addEventListener('input', function(event) {
+            const searchValue = event.target.value.toLowerCase();
+            const filteredMatchs = matchs.filter(match => {
+                return match.team1.toLowerCase().includes(searchValue) || match.team2.toLowerCase().includes(searchValue);
+            });
+            afficherMatchs(filteredMatchs);
+        });
+
+        // Charger les matchs au démarrage
+        chargerMatchs();
+    </script>
 </body>
 </html>
